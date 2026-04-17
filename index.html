@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habit Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F6F3; --surface: #FFFFFF; --border: #E4E2DB;
+    --text-primary: #1A1917; --text-secondary: #7A7870; --text-hint: #B4B2A9;
+    --green: #1D9E75; --green-light: #E1F5EE;
+    --coral: #D85A30; --coral-light: #FAECE7; --coral-border: #F0997B;
+    --radius: 12px; --radius-sm: 8px; --radius-pill: 20px;
+  }
+  html, body { height: 100%; background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--text-primary); -webkit-font-smoothing: antialiased; }
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 2rem 2.5rem; width: 100%; max-width: 780px; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04); }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.75rem; }
+  .title { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); }
+  .date-range { font-size: 13px; color: var(--text-secondary); margin-top: 3px; font-family: 'DM Mono', monospace; }
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.75rem; }
+  .stat { background: var(--bg); border-radius: var(--radius-sm); padding: 14px 16px; border: 1px solid var(--border); }
+  .stat-label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 5px; }
+  .stat-val { font-size: 26px; font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); font-family: 'DM Mono', monospace; }
+  .grid-header { display: grid; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .day-col { font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-hint); text-align: center; }
+  .day-col.today { color: var(--green); }
+  .habit-row { display: grid; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .habit-name { font-size: 14px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; }
+  .dot-wrap { display: flex; align-items: center; justify-content: center; }
+  .dot { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; transition: background 0.12s, border-color 0.12s, transform 0.1s; flex-shrink: 0; }
+  .dot:hover { border-color: var(--green); background: var(--green-light); transform: scale(1.08); }
+  .dot.done { background: var(--green); border-color: var(--green); }
+  .dot.done:hover { background: #0F6E56; border-color: #0F6E56; transform: scale(1.08); }
+  .dot.today-ring { border-color: var(--green); border-width: 2px; }
+  .dot.future { opacity: 0.25; cursor: default; pointer-events: none; }
+  .divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
+  .todo-label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; }
+  .todo-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
+  .chip { font-size: 13px; padding: 4px 12px; border-radius: var(--radius-pill); background: var(--coral-light); color: var(--coral); border: 1px solid var(--coral-border); }
+  .all-done { font-size: 13px; color: var(--green); font-weight: 500; }
+  @media (max-width: 600px) { body { padding: 1rem; } .card { padding: 1.25rem; } .habit-name { font-size: 12px; } .dot { width: 24px; height: 24px; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div>
+      <div class="title">Habits</div>
+      <div class="date-range" id="date-range"></div>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-label">Done today</div><div class="stat-val" id="stat-today">—</div></div>
+    <div class="stat"><div class="stat-label">Day streak</div><div class="stat-val" id="stat-streak">—</div></div>
+    <div class="stat"><div class="stat-label">Week rate</div><div class="stat-val" id="stat-pct">—</div></div>
+  </div>
+  <div class="grid-header" id="grid-header"><div></div></div>
+  <div id="habits-grid"></div>
+  <div class="divider"></div>
+  <div class="todo-label">Still to do today</div>
+  <div class="todo-chips" id="todo-chips"></div>
+</div>
+
+<script>
+const DEFAULT_HABITS = ['Push ups','Rehab','Up and out','Touch Typing','Guitar','Read'];
+const GOOGLE_CLIENT_ID = '757775787146-0mg9hteldp4pqja6thp2asa8977fm0bg.apps.googleusercontent.com';
+const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+let driveAccessToken = null;
+
+function getDateKey(d) { return d.toISOString().slice(0, 10); }
+
+function getLast7Days() {
+  const days = [];
+  for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push(d); }
+  return days;
+}
+
+function loadHabits() {
+  try { const h = localStorage.getItem('habits'); return h ? JSON.parse(h) : DEFAULT_HABITS; }
+  catch(e) { return DEFAULT_HABITS; }
+}
+
+function loadCompletions() {
+  try { const c = localStorage.getItem('completions'); return c ? JSON.parse(c) : {}; }
+  catch(e) { return {}; }
+}
+
+function save(habits, completions) {
+  localStorage.setItem('habits', JSON.stringify(habits));
+  localStorage.setItem('completions', JSON.stringify(completions));
+}
+
+function isDone(completions, habit, dateKey) { return !!completions[habit + '|' + dateKey]; }
+
+function render() {
+  const habits = loadHabits();
+  const completions = loadCompletions();
+  const days = getLast7Days();
+  const today = getDateKey(new Date());
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const first = days[0], last = days[days.length - 1];
+  document.getElementById('date-range').textContent =
+    first.getDate() + ' ' + MONTHS[first.getMonth()] + ' — ' + last.getDate() + ' ' + MONTHS[last.getMonth()];
+
+  const cols = '180px repeat(7, 1fr)';
+  const header = document.getElementById('grid-header');
+  header.style.gridTemplateColumns = cols;
+  header.innerHTML = '<div></div>';
+  days.forEach(d => {
+    const isToday = getDateKey(d) === today;
+    const el = document.createElement('div');
+    el.className = 'day-col' + (isToday ? ' today' : '');
+    el.textContent = DAY_NAMES[d.getDay()];
+    header.appendChild(el);
+  });
+
+  const grid = document.getElementById('habits-grid');
+  grid.innerHTML = '';
+  habits.forEach(habit => {
+    const row = document.createElement('div');
+    row.className = 'habit-row';
+    row.style.gridTemplateColumns = cols;
+    const nameEl = document.createElement('div');
+    nameEl.className = 'habit-name';
+    nameEl.textContent = habit;
+    nameEl.title = habit;
+    row.appendChild(nameEl);
+    days.forEach(d => {
+      const key = getDateKey(d);
+      const isFuture = key > today;
+      const isToday = key === today;
+      const done = isDone(completions, habit, key);
+      const wrap = document.createElement('div');
+      wrap.className = 'dot-wrap';
+      const dot = document.createElement('div');
+      let cls = 'dot';
+      if (done) cls += ' done';
+      if (isFuture) cls += ' future';
+      if (isToday && !done) cls += ' today-ring';
+      dot.className = cls;
+      dot.title = (done ? 'Unmark: ' : 'Complete: ') + habit;
+      if (!isFuture) {
+        dot.addEventListener('click', () => {
+          const c = loadCompletions();
+          c[habit + '|' + key] = !c[habit + '|' + key];
+          save(habits, c);
+          render();
+        });
+      }
+      wrap.appendChild(dot);
+      row.appendChild(wrap);
+    });
+    grid.appendChild(row);
+  });
+
+  const doneTodayCount = habits.filter(h => isDone(completions, h, today)).length;
+  document.getElementById('stat-today').textContent = doneTodayCount + '/' + habits.length;
+
+  let streak = 0;
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = getDateKey(d);
+    if (k > today) continue;
+    if (habits.length > 0 && habits.every(h => isDone(completions, h, k))) streak++;
+    else break;
+  }
+  document.getElementById('stat-streak').textContent = streak;
+
+  let total = 0, done = 0;
+  days.forEach(d => {
+    const k = getDateKey(d);
+    if (k > today) return;
+    habits.forEach(h => { total++; if (isDone(completions, h, k)) done++; });
+  });
+  document.getElementById('stat-pct').textContent = total > 0 ? Math.round(done / total * 100) + '%' : '0%';
+
+  const notDone = habits.filter(h => !isDone(completions, h, today));
+  const chips = document.getElementById('todo-chips');
+  chips.innerHTML = '';
+  if (notDone.length === 0) {
+    const msg = document.createElement('span'); msg.className = 'all-done'; msg.textContent = 'All done for today!'; chips.appendChild(msg);
+  } else {
+    notDone.forEach(h => { const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = h; chips.appendChild(chip); });
+  }
+}
+
+function runBackupIfDue() {
+  const lastBackup = localStorage.getItem('backup_last_run');
+  const today = getDateKey(new Date());
+  if (lastBackup === today) return;
+  const now = new Date();
+  if (false) return;
+  runLocalBackup(today);
+  initGoogleAuth(today);
+}
+
+function runLocalBackup(today) {
+  const habits = loadHabits();
+  const completions = loadCompletions();
+  const snapshot = JSON.stringify({ date: today, habits, completions });
+  const current = parseInt(localStorage.getItem('backup_slot') || '0');
+  const nextSlot = (current % 4) + 1;
+  localStorage.setItem('backup_' + nextSlot, snapshot);
+  localStorage.setItem('backup_slot', String(nextSlot));
+}
+
+function initGoogleAuth(today) {
+  const script = document.createElement('script');
+  script.src = 'https://accounts.google.com/gsi/client';
+  script.onload = () => {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GOOGLE_SCOPE,
+      prompt: '',
+      callback: (tokenResponse) => {
+        if (tokenResponse && tokenResponse.access_token) {
+          driveAccessToken = tokenResponse.access_token;
+          runDriveBackup(today);
+        }
+      }
+    });
+    client.requestAccessToken({ prompt: '' });
+  };
+  document.head.appendChild(script);
+}
+
+async function runDriveBackup(today) {
+  const habits = loadHabits();
+  const completions = loadCompletions();
+  const current = parseInt(localStorage.getItem('backup_slot') || '1');
+  const slot = ((current - 1) % 4) + 1;
+  const filename = 'habit-backup-' + slot + '.json';
+  const content = JSON.stringify({ date: today, habits, completions });
+  const existingId = await findDriveFile(filename);
+  if (existingId) { await updateDriveFile(existingId, content); }
+  else { await createDriveFile(filename, content); }
+  localStorage.setItem('backup_last_run', today);
+}
+
+async function findDriveFile(filename) {
+  const res = await fetch(
+    'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%22' + encodeURIComponent(filename) + '%22',
+    { headers: { Authorization: 'Bearer ' + driveAccessToken } }
+  );
+  const data = await res.json();
+  return data.files && data.files.length > 0 ? data.files[0].id : null;
+}
+
+async function createDriveFile(filename, content) {
+  const metadata = { name: filename, parents: ['appDataFolder'] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', new Blob([content], { type: 'application/json' }));
+  await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + driveAccessToken },
+    body: form
+  });
+}
+
+async function updateDriveFile(fileId, content) {
+  await fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media', {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + driveAccessToken, 'Content-Type': 'application/json' },
+    body: content
+  });
+}
+
+render();
+runBackupIfDue();
+</script>
+</body>
+</html>
