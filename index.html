@@ -14,9 +14,9 @@
     --coral: #D85A30; --coral-light: #FAECE7; --coral-border: #F0997B;
     --radius: 12px; --radius-sm: 8px; --radius-pill: 20px;
   }
-  html, body { height: 100%; background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--text-primary); -webkit-font-smoothing: antialiased; }
-  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
-  .card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 2rem 2.5rem; width: 100%; max-width: 780px; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04); }
+  html, body { height: 100%; background: var(--surface); font-family: 'DM Sans', sans-serif; color: var(--text-primary); -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; padding: 1.25rem; }
+  .card { width: 100%; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.75rem; }
   .title { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); }
   .date-range { font-size: 13px; color: var(--text-secondary); margin-top: 3px; font-family: 'DM Mono', monospace; }
@@ -24,11 +24,10 @@
   .stat { background: var(--bg); border-radius: var(--radius-sm); padding: 14px 16px; border: 1px solid var(--border); }
   .stat-label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 5px; }
   .stat-val { font-size: 26px; font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); font-family: 'DM Mono', monospace; }
-  .grid-header { display: grid; gap: 6px; margin-bottom: 6px; align-items: center; }
-  .day-col { font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-hint); text-align: center; }
+  #main-grid { display: grid; gap: 6px; align-items: center; }
+  .day-col { font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-hint); text-align: center; padding-bottom: 4px; }
   .day-col.today { color: var(--green); }
-  .habit-row { display: grid; gap: 6px; margin-bottom: 6px; align-items: center; }
-  .habit-name { font-size: 14px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; }
+  .habit-name { font-size: 14px; color: var(--text-primary); white-space: nowrap; padding-right: 16px; }
   .dot-wrap { display: flex; align-items: center; justify-content: center; }
   .dot { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; transition: background 0.12s, border-color 0.12s, transform 0.1s; flex-shrink: 0; }
   .dot:hover { border-color: var(--green); background: var(--green-light); transform: scale(1.08); }
@@ -36,6 +35,7 @@
   .dot.done:hover { background: #0F6E56; border-color: #0F6E56; transform: scale(1.08); }
   .dot.today-ring { border-color: var(--green); border-width: 2px; }
   .dot.future { opacity: 0.25; cursor: default; pointer-events: none; }
+  .dot.na { background: #EEEDE9; border-color: #EEEDE9; cursor: default; pointer-events: none; }
   .divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
   .todo-label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; }
   .todo-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
@@ -46,29 +46,18 @@
 </head>
 <body>
 <div class="card">
-  <div class="header">
-    <div>
-      <div class="title">Habits</div>
-      <div class="date-range" id="date-range"></div>
-    </div>
-  </div>
-  <div class="stats-row">
-    <div class="stat"><div class="stat-label">Done today</div><div class="stat-val" id="stat-today">—</div></div>
-    <div class="stat"><div class="stat-label">Day streak</div><div class="stat-val" id="stat-streak">—</div></div>
-    <div class="stat"><div class="stat-label">Week rate</div><div class="stat-val" id="stat-pct">—</div></div>
-  </div>
-  <div class="grid-header" id="grid-header"><div></div></div>
-  <div id="habits-grid"></div>
-  <div class="divider"></div>
-  <div class="todo-label">Still to do today</div>
-  <div class="todo-chips" id="todo-chips"></div>
+  <div id="main-grid"></div>
 </div>
 
 <script>
-const DEFAULT_HABITS = ['Push ups','Rehab','Up and out','Touch Typing','Guitar','Read'];
-const GOOGLE_CLIENT_ID = '757775787146-0mg9hteldp4pqja6thp2asa8977fm0bg.apps.googleusercontent.com';
-const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
-let driveAccessToken = null;
+const DEFAULT_HABITS = [
+  { name: 'Push ups',    startDate: '2026-04-21', status: 'active', pausedFrom: null },
+  { name: 'Rehab',       startDate: '2026-04-21', status: 'active', pausedFrom: null },
+  { name: 'Up and out',  startDate: '2026-04-21', status: 'active', pausedFrom: null },
+  { name: 'Touch Typing',startDate: '2026-04-21', status: 'active', pausedFrom: null },
+  { name: 'Guitar',      startDate: '2026-04-21', status: 'active', pausedFrom: null },
+  { name: 'Read',        startDate: '2026-04-21', status: 'active', pausedFrom: null },
+];
 
 function getDateKey(d) { return d.toISOString().slice(0, 10); }
 
@@ -79,8 +68,10 @@ function getLast7Days() {
 }
 
 function loadHabits() {
-  try { const h = localStorage.getItem('habits'); return h ? JSON.parse(h) : DEFAULT_HABITS; }
-  catch(e) { return DEFAULT_HABITS; }
+  try {
+    const h = localStorage.getItem('habits');
+    return h ? JSON.parse(h) : DEFAULT_HABITS;
+  } catch(e) { return DEFAULT_HABITS; }
 }
 
 function loadCompletions() {
@@ -93,7 +84,33 @@ function save(habits, completions) {
   localStorage.setItem('completions', JSON.stringify(completions));
 }
 
-function isDone(completions, habit, dateKey) { return !!completions[habit + '|' + dateKey]; }
+// Returns 'done', 'na', or 'empty'
+function getDotState(completions, habitName, dateKey) {
+  const val = completions[habitName + '|' + dateKey];
+  if (val === true) return 'done';
+  if (val === 'na') return 'na';
+  return 'empty';
+}
+
+function pauseHabit(habits, habitName, today) {
+  return habits.map(h => h.name === habitName ? { ...h, status: 'paused', pausedFrom: today } : h);
+}
+
+function unpauseHabit(habits, completions, habitName, today) {
+  const habit = habits.find(h => h.name === habitName);
+  if (!habit || !habit.pausedFrom) return { habits, completions };
+  // Backfill 'na' from pausedFrom to yesterday
+  const c = { ...completions };
+  let cursor = new Date(habit.pausedFrom);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  while (cursor <= yesterday) {
+    const key = getDateKey(cursor);
+    if (!c[habitName + '|' + key]) c[habitName + '|' + key] = 'na';
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  const newHabits = habits.map(h => h.name === habitName ? { ...h, status: 'active', pausedFrom: null } : h);
+  return { habits: newHabits, completions: c };
+}
 
 function render() {
   const habits = loadHabits();
@@ -101,92 +118,72 @@ function render() {
   const days = getLast7Days();
   const today = getDateKey(new Date());
   const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  const first = days[0], last = days[days.length - 1];
-  document.getElementById('date-range').textContent =
-    first.getDate() + ' ' + MONTHS[first.getMonth()] + ' — ' + last.getDate() + ' ' + MONTHS[last.getMonth()];
+  const activeHabits = habits.filter(h => h.status === 'active');
 
-  const cols = '180px repeat(7, 1fr)';
-  const header = document.getElementById('grid-header');
-  header.style.gridTemplateColumns = cols;
-  header.innerHTML = '<div></div>';
+  const cols = 'max-content repeat(7, 1fr)';
+  const grid = document.getElementById('main-grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = cols;
+
+  // Re-insert the cog as first cell after clearing grid
+  renderSettingsButton();
+
+  // Header row — day labels
   days.forEach(d => {
     const isToday = getDateKey(d) === today;
     const el = document.createElement('div');
     el.className = 'day-col' + (isToday ? ' today' : '');
     el.textContent = DAY_NAMES[d.getDay()];
-    header.appendChild(el);
+    grid.appendChild(el);
   });
 
-  const grid = document.getElementById('habits-grid');
-  grid.innerHTML = '';
-  habits.forEach(habit => {
-    const row = document.createElement('div');
-    row.className = 'habit-row';
-    row.style.gridTemplateColumns = cols;
+  // Habit rows
+  activeHabits.forEach(habit => {
     const nameEl = document.createElement('div');
     nameEl.className = 'habit-name';
-    nameEl.textContent = habit;
-    nameEl.title = habit;
-    row.appendChild(nameEl);
+    nameEl.textContent = habit.name;
+    nameEl.title = habit.name;
+    grid.appendChild(nameEl);
+
     days.forEach(d => {
       const key = getDateKey(d);
       const isFuture = key > today;
       const isToday = key === today;
-      const done = isDone(completions, habit, key);
+      const beforeStart = habit.startDate && key < habit.startDate;
+      const state = getDotState(completions, habit.name, key);
+
       const wrap = document.createElement('div');
       wrap.className = 'dot-wrap';
       const dot = document.createElement('div');
+
       let cls = 'dot';
-      if (done) cls += ' done';
-      if (isFuture) cls += ' future';
-      if (isToday && !done) cls += ' today-ring';
+      if (beforeStart || state === 'na') {
+        cls += ' na';
+      } else if (state === 'done') {
+        cls += ' done';
+      } else if (isFuture) {
+        cls += ' future';
+      } else if (isToday) {
+        cls += ' today-ring';
+      }
+
       dot.className = cls;
-      dot.title = (done ? 'Unmark: ' : 'Complete: ') + habit;
-      if (!isFuture) {
+
+      if (!isFuture && !beforeStart && state !== 'na') {
         dot.addEventListener('click', () => {
           const c = loadCompletions();
-          c[habit + '|' + key] = !c[habit + '|' + key];
-          save(habits, c);
+          const h = loadHabits();
+          c[habit.name + '|' + key] = state !== 'done' ? true : false;
+          save(h, c);
           render();
         });
       }
+
       wrap.appendChild(dot);
-      row.appendChild(wrap);
+      grid.appendChild(wrap);
     });
-    grid.appendChild(row);
   });
-
-  const doneTodayCount = habits.filter(h => isDone(completions, h, today)).length;
-  document.getElementById('stat-today').textContent = doneTodayCount + '/' + habits.length;
-
-  let streak = 0;
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    const k = getDateKey(d);
-    if (k > today) continue;
-    if (habits.length > 0 && habits.every(h => isDone(completions, h, k))) streak++;
-    else break;
-  }
-  document.getElementById('stat-streak').textContent = streak;
-
-  let total = 0, done = 0;
-  days.forEach(d => {
-    const k = getDateKey(d);
-    if (k > today) return;
-    habits.forEach(h => { total++; if (isDone(completions, h, k)) done++; });
-  });
-  document.getElementById('stat-pct').textContent = total > 0 ? Math.round(done / total * 100) + '%' : '0%';
-
-  const notDone = habits.filter(h => !isDone(completions, h, today));
-  const chips = document.getElementById('todo-chips');
-  chips.innerHTML = '';
-  if (notDone.length === 0) {
-    const msg = document.createElement('span'); msg.className = 'all-done'; msg.textContent = 'All done for today!'; chips.appendChild(msg);
-  } else {
-    notDone.forEach(h => { const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = h; chips.appendChild(chip); });
-  }
 }
 
 function runBackupIfDue() {
@@ -194,81 +191,411 @@ function runBackupIfDue() {
   const today = getDateKey(new Date());
   if (lastBackup === today) return;
   const now = new Date();
-  if (false) return;
-  runLocalBackup(today);
-  initGoogleAuth(today);
+  if (now.getDay() === 0) {
+    runGistBackup(today, 'weekly');
+  } else {
+    runGistBackup(today, 'daily');
+  }
 }
 
-function runLocalBackup(today) {
+// ── GitHub Gist backup ──────────────────────────────────────────────────────
+
+function getGistToken() { return localStorage.getItem('gist_token') || ''; }
+function getGistId(key) { return localStorage.getItem('gist_id_' + key) || ''; }
+function setGistId(key, id) { localStorage.setItem('gist_id_' + key, id); }
+
+async function runGistBackup(today, mode) {
+  const token = getGistToken();
+  if (!token) { showBackupStatus('No GitHub token — open settings', 'warn'); return; }
   const habits = loadHabits();
   const completions = loadCompletions();
-  const snapshot = JSON.stringify({ date: today, habits, completions });
-  const current = parseInt(localStorage.getItem('backup_slot') || '0');
-  const nextSlot = (current % 4) + 1;
-  localStorage.setItem('backup_' + nextSlot, snapshot);
-  localStorage.setItem('backup_slot', String(nextSlot));
+  const content = JSON.stringify({ date: today, habits, completions }, null, 2);
+  try {
+    // Always write the daily file
+    await writeGistFile(token, 'daily', 'habit-tracker-daily.json', content);
+
+    // On Sundays also write the rolling weekly slot
+    if (mode === 'weekly') {
+      const slot = getNextWeeklySlot();
+      await writeGistFile(token, 'weekly' + slot, 'habit-tracker-' + slot + '.json', content, 'Habit Tracker — Weekly Backup ' + slot + ' (' + today + ')');
+      localStorage.setItem('weekly_slot', String(slot));
+    }
+
+    localStorage.setItem('backup_last_run', today);
+    showBackupStatus('✓', 'ok');
+  } catch(e) {
+    showBackupStatus(e.message, 'err');
+  }
 }
 
-function initGoogleAuth(today) {
-  const script = document.createElement('script');
-  script.src = 'https://accounts.google.com/gsi/client';
-  script.onload = () => {
-    const client = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: GOOGLE_SCOPE,
-      prompt: '',
-      callback: (tokenResponse) => {
-        if (tokenResponse && tokenResponse.access_token) {
-          driveAccessToken = tokenResponse.access_token;
-          runDriveBackup(today);
-        }
-      }
-    });
-    client.requestAccessToken({ prompt: '' });
-  };
-  document.head.appendChild(script);
+function getNextWeeklySlot() {
+  const current = parseInt(localStorage.getItem('weekly_slot') || '0');
+  return (current % 4) + 1;
 }
 
-async function runDriveBackup(today) {
-  const habits = loadHabits();
-  const completions = loadCompletions();
-  const current = parseInt(localStorage.getItem('backup_slot') || '1');
-  const slot = ((current - 1) % 4) + 1;
-  const filename = 'habit-backup-' + slot + '.json';
-  const content = JSON.stringify({ date: today, habits, completions });
-  const existingId = await findDriveFile(filename);
-  if (existingId) { await updateDriveFile(existingId, content); }
-  else { await createDriveFile(filename, content); }
-  localStorage.setItem('backup_last_run', today);
+async function writeGistFile(token, idKey, filename, content, description) {
+  const gistId = getGistId(idKey);
+  if (gistId) {
+    await patchGist(token, gistId, filename, content, description);
+  } else {
+    const id = await createGist(token, filename, content, description);
+    setGistId(idKey, id);
+  }
 }
 
-async function findDriveFile(filename) {
-  const res = await fetch(
-    'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%22' + encodeURIComponent(filename) + '%22',
-    { headers: { Authorization: 'Bearer ' + driveAccessToken } }
-  );
-  const data = await res.json();
-  return data.files && data.files.length > 0 ? data.files[0].id : null;
-}
-
-async function createDriveFile(filename, content) {
-  const metadata = { name: filename, parents: ['appDataFolder'] };
-  const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-  form.append('file', new Blob([content], { type: 'application/json' }));
-  await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+async function createGist(token, filename, content, description) {
+  const res = await fetch('https://api.github.com/gists', {
     method: 'POST',
-    headers: { Authorization: 'Bearer ' + driveAccessToken },
-    body: form
+    headers: { Authorization: 'token ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description: description || 'Habit Tracker Backup', public: false,
+      files: { [filename]: { content } } })
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  return data.id;
+}
+
+async function patchGist(token, gistId, filename, content, description) {
+  const body = { files: { [filename]: { content } } };
+  if (description) body.description = description;
+  const res = await fetch('https://api.github.com/gists/' + gistId, {
+    method: 'PATCH',
+    headers: { Authorization: 'token ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+}
+
+function showBackupStatus(msg, type) {
+  let el = document.getElementById('backup-status');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'backup-status';
+    el.style.cssText = 'position:fixed;top:14px;left:16px;font-size:12px;padding:4px 10px;border-radius:20px;font-family:DM Sans,sans-serif;z-index:999;cursor:pointer;display:none';
+    el.addEventListener('click', () => { el.style.display = 'none'; });
+    document.body.appendChild(el);
+  }
+  const colors = { ok: '#1D9E75', warn: '#B45309', err: '#D85A30' };
+  el.style.background = colors[type] || '#333';
+  el.style.color = '#fff';
+  el.style.display = 'block';
+  el.textContent = type === 'ok' ? '✓' : '✗ ' + msg;
+  if (type === 'ok') setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+// ── Settings panel ──────────────────────────────────────────────────────────
+
+function renderSettings() {
+  let panel = document.getElementById('settings-panel');
+  if (panel) { panel.remove(); return; }
+  panel = document.createElement('div');
+  panel.id = 'settings-panel';
+  panel.style.cssText = 'position:fixed;top:10%;left:50%;transform:translateX(-50%);background:#fff;border:1px solid #E4E2DB;border-radius:12px;padding:24px;width:340px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.12);z-index:1000;font-family:DM Sans,sans-serif';
+  const hdr = 'display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:12px 0;border-bottom:1px solid #E4E2DB;user-select:none;';
+  const lbl = 'font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#7A7870';
+  const chv = 'font-size:11px;color:#B4B2A9';
+
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-size:15px;font-weight:500">Settings</div>
+      <button id="close-settings-btn" style="background:none;border:none;font-size:18px;cursor:pointer;color:#B4B2A9;line-height:1;padding:0">✕</button>
+    </div>
+
+    <div id="section-habits">
+      <div style="${hdr}" id="toggle-habits">
+        <span style="${lbl}">Habits</span>
+        <span style="${chv}" id="chevron-habits">▼</span>
+      </div>
+      <div id="body-habits" style="padding-top:10px">
+        <div id="habits-manage-list" style="margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input id="new-habit-input" type="text" placeholder="New habit name"
+            style="flex:1;padding:8px 10px;border:1px solid #E4E2DB;border-radius:8px;font-size:13px;outline:none" />
+          <button id="add-habit-btn" style="padding:8px 14px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="section-backup">
+      <div style="${hdr}" id="toggle-backup">
+        <span style="${lbl}">Backup</span>
+        <span style="${chv}" id="chevron-backup">▶</span>
+      </div>
+      <div id="body-backup" style="display:none;padding-top:10px">
+        <div style="font-size:12px;color:#7A7870;margin-bottom:10px;line-height:1.5">
+          1. Go to <a href="https://github.com/settings/tokens/new" target="_blank" style="color:#1D9E75">github.com/settings/tokens/new</a><br>
+          2. Name it "Habit Tracker", check <strong>gist</strong> scope, click Generate<br>
+          3. Paste the token below
+        </div>
+        <input id="gist-token-input" type="password" placeholder="ghp_xxxxxxxxxxxx"
+          style="width:100%;padding:8px 10px;border:1px solid #E4E2DB;border-radius:8px;font-size:13px;margin-bottom:10px;outline:none"
+          value="${getGistToken()}" />
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button id="save-token-btn" style="flex:1;padding:8px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer">Save & Test</button>
+          <button id="backup-now-btn" style="flex:1;padding:8px;background:#F7F6F3;border:1px solid #E4E2DB;border-radius:8px;font-size:13px;cursor:pointer">Backup now</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="section-restore">
+      <div style="${hdr}" id="toggle-restore">
+        <span style="${lbl}">Restore</span>
+        <span style="${chv}" id="chevron-restore">▶</span>
+      </div>
+      <div id="body-restore" style="display:none;padding-top:10px">
+        <div id="restore-list" style="margin-bottom:8px"></div>
+        <div id="restore-error" style="font-size:11px;color:#D85A30;margin-bottom:8px;display:none"></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(panel);
+
+  // Collapsible toggles
+  ['habits', 'backup', 'restore'].forEach(id => {
+    document.getElementById('toggle-' + id).onclick = () => {
+      const body = document.getElementById('body-' + id);
+      const chevron = document.getElementById('chevron-' + id);
+      const open = body.style.display !== 'none';
+      body.style.display = open ? 'none' : 'block';
+      chevron.textContent = open ? '▶' : '▼';
+      if (!open && id === 'restore') loadRestoreList();
+    };
+  });
+
+  renderHabitsManageList();
+
+  document.getElementById('add-habit-btn').onclick = () => {
+    const input = document.getElementById('new-habit-input');
+    const name = input.value.trim();
+    if (!name) return;
+    const h = loadHabits();
+    if (h.find(x => x.name === name)) return;
+    h.push({ name, startDate: getDateKey(new Date()), status: 'active', pausedFrom: null });
+    save(h, loadCompletions());
+    input.value = '';
+    renderHabitsManageList();
+    render();
+  };
+
+  document.getElementById('close-settings-btn').onclick = () => panel.remove();
+  document.getElementById('backup-now-btn').onclick = () => { panel.remove(); runGistBackup(getDateKey(new Date()), 'daily'); };
+  document.getElementById('save-token-btn').onclick = () => {
+    const token = document.getElementById('gist-token-input').value.trim();
+    if (!token) return;
+    localStorage.setItem('gist_token', token);
+    panel.remove();
+    runGistBackup(getDateKey(new Date()), 'daily');
+  };
+}
+
+function renderHabitsManageList() {
+  const listEl = document.getElementById('habits-manage-list');
+  if (!listEl) return;
+  const habits = loadHabits();
+  listEl.innerHTML = '';
+
+  const active   = habits.filter(h => h.status === 'active');
+  const paused   = habits.filter(h => h.status === 'paused');
+  const archived = habits.filter(h => h.status === 'archived');
+
+  const btnStyle = 'padding:3px 8px;background:#F7F6F3;border:1px solid #E4E2DB;border-radius:6px;font-size:11px;cursor:pointer;color:#7A7870';
+  const redBtnStyle = 'padding:3px 8px;background:#F7F6F3;border:1px solid #E4E2DB;border-radius:6px;font-size:11px;cursor:pointer;color:#D85A30';
+
+  function makeRow(habit) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F0EFE9;';
+    const name = document.createElement('div');
+    const isArchived = habit.status === 'archived';
+    const isPaused = habit.status === 'paused';
+    name.style.cssText = 'font-size:13px;color:' + (isArchived ? '#D4D2CC' : isPaused ? '#B4B2A9' : '#1A1917');
+    name.textContent = habit.name;
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
+
+    if (isArchived) {
+      // Unarchive — backfills 'na' for the archived period, same as unpause
+      const unarchiveBtn = document.createElement('button');
+      unarchiveBtn.textContent = 'Restore';
+      unarchiveBtn.style.cssText = btnStyle;
+      unarchiveBtn.onclick = () => {
+        const h = loadHabits();
+        const c = loadCompletions();
+        const result = unpauseHabit(h, c, habit.name, getDateKey(new Date()));
+        // unpauseHabit sets status to 'active', which is what we want
+        save(result.habits, result.completions);
+        renderHabitsManageList();
+        render();
+      };
+      btns.appendChild(unarchiveBtn);
+    } else if (isPaused) {
+      // Resume button
+      const resumeBtn = document.createElement('button');
+      resumeBtn.textContent = 'Resume';
+      resumeBtn.style.cssText = btnStyle;
+      resumeBtn.onclick = () => {
+        const h = loadHabits();
+        const c = loadCompletions();
+        const result = unpauseHabit(h, c, habit.name, getDateKey(new Date()));
+        save(result.habits, result.completions);
+        renderHabitsManageList();
+        render();
+      };
+      btns.appendChild(resumeBtn);
+    } else {
+      // Pause button
+      const pauseBtn = document.createElement('button');
+      pauseBtn.textContent = '⏸';
+      pauseBtn.style.cssText = btnStyle;
+      pauseBtn.onclick = () => {
+        const h = loadHabits();
+        const c = loadCompletions();
+        save(pauseHabit(h, habit.name, getDateKey(new Date())), c);
+        renderHabitsManageList();
+        render();
+      };
+      btns.appendChild(pauseBtn);
+    }
+
+    if (!isArchived) {
+      // Archive button (replaces delete)
+      const archiveBtn = document.createElement('button');
+      archiveBtn.textContent = '✕';
+      archiveBtn.style.cssText = redBtnStyle;
+      archiveBtn.onclick = () => {
+        if (archiveBtn.dataset.confirm === 'true') {
+          const h = loadHabits().map(x => x.name === habit.name ? { ...x, status: 'archived', pausedFrom: x.pausedFrom || getDateKey(new Date()) } : x);
+          save(h, loadCompletions());
+          renderHabitsManageList();
+          render();
+        } else {
+          archiveBtn.textContent = 'Sure?';
+          archiveBtn.dataset.confirm = 'true';
+          setTimeout(() => { archiveBtn.textContent = '✕'; archiveBtn.dataset.confirm = ''; }, 3000);
+        }
+      };
+      btns.appendChild(archiveBtn);
+    }
+
+    row.appendChild(name);
+    row.appendChild(btns);
+    return row;
+  }
+
+  function makeGroupLabel(text) {
+    const el = document.createElement('div');
+    el.style.cssText = 'font-size:10px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#D4D2CC;padding:10px 0 4px';
+    el.textContent = text;
+    return el;
+  }
+
+  active.forEach(h => listEl.appendChild(makeRow(h)));
+
+  if (paused.length > 0) {
+    listEl.appendChild(makeGroupLabel('Paused'));
+    paused.forEach(h => listEl.appendChild(makeRow(h)));
+  }
+
+  if (archived.length > 0) {
+    listEl.appendChild(makeGroupLabel('Archived'));
+    archived.forEach(h => listEl.appendChild(makeRow(h)));
+  }
+}
+
+async function loadRestoreList() {
+  const listEl = document.getElementById('restore-list');
+  const errEl = document.getElementById('restore-error');
+  if (!listEl) return;
+
+  const token = getGistToken();
+  if (!token) {
+    listEl.innerHTML = '<div style="font-size:12px;color:#B4B2A9">Add a token above to enable restore.</div>';
+    return;
+  }
+
+  // Build list of known gists: daily + weekly 1-4
+  const slots = [
+    { label: 'Daily', idKey: 'daily' },
+    { label: 'Weekly 1', idKey: 'weekly1' },
+    { label: 'Weekly 2', idKey: 'weekly2' },
+    { label: 'Weekly 3', idKey: 'weekly3' },
+    { label: 'Weekly 4', idKey: 'weekly4' },
+  ];
+
+  const available = slots.filter(s => getGistId(s.idKey));
+  if (available.length === 0) {
+    listEl.innerHTML = '<div style="font-size:12px;color:#B4B2A9">No backups found yet.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '<div style="font-size:12px;color:#B4B2A9;margin-bottom:8px">Loading backups...</div>';
+
+  // Fetch date from each gist
+  const rows = await Promise.all(available.map(async slot => {
+    try {
+      const res = await fetch('https://api.github.com/gists/' + getGistId(slot.idKey), {
+        headers: { Authorization: 'token ' + token }
+      });
+      if (!res.ok) return { ...slot, date: null, error: 'HTTP ' + res.status };
+      const data = await res.json();
+      const file = Object.values(data.files)[0];
+      const content = JSON.parse(file.content);
+      return { ...slot, date: content.date, content };
+    } catch(e) {
+      return { ...slot, date: null, error: e.message };
+    }
+  }));
+
+  listEl.innerHTML = '';
+  rows.forEach(row => {
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid #E4E2DB;border-radius:8px;margin-bottom:6px;';
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:13px;color:#1A1917;';
+    label.textContent = row.label + (row.date ? ' — ' + row.date : row.error ? ' — error' : '');
+    item.appendChild(label);
+    if (row.content) {
+      const btn = document.createElement('button');
+      btn.textContent = 'Restore';
+      btn.style.cssText = 'padding:4px 10px;background:#D85A30;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;flex-shrink:0';
+      btn.onclick = () => {
+        if (btn.dataset.confirm === 'true') {
+          confirmRestore(row);
+        } else {
+          btn.textContent = 'Sure?';
+          btn.dataset.confirm = 'true';
+          setTimeout(() => { btn.textContent = 'Restore'; btn.dataset.confirm = ''; }, 3000);
+        }
+      };
+      item.appendChild(btn);
+    }
+    listEl.appendChild(item);
   });
 }
 
-async function updateDriveFile(fileId, content) {
-  await fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media', {
-    method: 'PATCH',
-    headers: { Authorization: 'Bearer ' + driveAccessToken, 'Content-Type': 'application/json' },
-    body: content
-  });
+function confirmRestore(row) {
+  const panel = document.getElementById('settings-panel');
+  const errEl = document.getElementById('restore-error');
+  try {
+    localStorage.setItem('habits', JSON.stringify(row.content.habits));
+    localStorage.setItem('completions', JSON.stringify(row.content.completions));
+    panel.remove();
+    render();
+    showBackupStatus('✓', 'ok');
+  } catch(e) {
+    errEl.textContent = '✗ ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+function renderSettingsButton() {
+  const btn = document.createElement('button');
+  btn.textContent = '⚙';
+  btn.title = 'Backup settings';
+  btn.style.cssText = 'background:none;border:none;font-size:15px;cursor:pointer;color:#B4B2A9;line-height:1;padding:0;text-align:left';
+  btn.onclick = renderSettings;
+  // Place it as the first cell in the grid (the empty name-column header slot)
+  const grid = document.getElementById('main-grid');
+  grid.insertBefore(btn, grid.firstChild);
 }
 
 render();
