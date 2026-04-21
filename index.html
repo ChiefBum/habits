@@ -15,7 +15,7 @@
     --radius: 12px; --radius-sm: 8px; --radius-pill: 20px;
   }
   html, body { height: 100%; background: var(--surface); font-family: 'DM Sans', sans-serif; color: var(--text-primary); -webkit-font-smoothing: antialiased; }
-  body { min-height: 100vh; padding: 1.25rem; }
+  body { padding: 0.75rem; overflow-x: hidden; }
   .card { width: 100%; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.75rem; }
   .title { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); }
@@ -28,8 +28,8 @@
   .day-col { font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-hint); text-align: center; padding-bottom: 4px; }
   .day-col.today { color: var(--green); }
   .habit-name { font-size: 14px; color: var(--text-primary); white-space: nowrap; padding-right: 16px; }
-  .dot-wrap { display: flex; align-items: center; justify-content: center; }
-  .dot { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; transition: background 0.12s, border-color 0.12s, transform 0.1s; flex-shrink: 0; }
+  .dot-wrap { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+  .dot { aspect-ratio: 1; height: 75%; max-width: 90%; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; transition: background 0.12s, border-color 0.12s, transform 0.1s; }
   .dot:hover { border-color: var(--green); background: var(--green-light); transform: scale(1.08); }
   .dot.done { background: var(--green); border-color: var(--green); }
   .dot.done:hover { background: #0F6E56; border-color: #0F6E56; transform: scale(1.08); }
@@ -41,7 +41,7 @@
   .todo-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
   .chip { font-size: 13px; padding: 4px 12px; border-radius: var(--radius-pill); background: var(--coral-light); color: var(--coral); border: 1px solid var(--coral-border); }
   .all-done { font-size: 13px; color: var(--green); font-weight: 500; }
-  @media (max-width: 600px) { body { padding: 1rem; } .card { padding: 1.25rem; } .habit-name { font-size: 12px; } .dot { width: 24px; height: 24px; } }
+  @media (max-width: 600px) { body { padding: 1rem; } .card { padding: 1.25rem; } .habit-name { font-size: 12px; } }
 </style>
 </head>
 <body>
@@ -50,16 +50,10 @@
 </div>
 
 <script>
-const DEFAULT_HABITS = [
-  { name: 'Push ups',    startDate: '2026-04-21', status: 'active', pausedFrom: null },
-  { name: 'Rehab',       startDate: '2026-04-21', status: 'active', pausedFrom: null },
-  { name: 'Up and out',  startDate: '2026-04-21', status: 'active', pausedFrom: null },
-  { name: 'Touch Typing',startDate: '2026-04-21', status: 'active', pausedFrom: null },
-  { name: 'Guitar',      startDate: '2026-04-21', status: 'active', pausedFrom: null },
-  { name: 'Read',        startDate: '2026-04-21', status: 'active', pausedFrom: null },
-];
 
 function getDateKey(d) { return d.toISOString().slice(0, 10); }
+function getMaxHabits() { return parseInt(localStorage.getItem('max_habits') || '6'); }
+function setMaxHabits(n) { localStorage.setItem('max_habits', String(n)); }
 
 function getLast7Days() {
   const days = [];
@@ -70,8 +64,8 @@ function getLast7Days() {
 function loadHabits() {
   try {
     const h = localStorage.getItem('habits');
-    return h ? JSON.parse(h) : DEFAULT_HABITS;
-  } catch(e) { return DEFAULT_HABITS; }
+    return h ? JSON.parse(h) : [];
+  } catch(e) { return []; }
 }
 
 function loadCompletions() {
@@ -120,11 +114,19 @@ function render() {
   const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
   const activeHabits = habits.filter(h => h.status === 'active');
+  const maxHabits = getMaxHabits();
 
   const cols = 'max-content repeat(7, 1fr)';
   const grid = document.getElementById('main-grid');
   grid.innerHTML = '';
   grid.style.gridTemplateColumns = cols;
+  grid.style.gridAutoRows = '';
+  grid.style.height = '';
+  grid.style.overflow = '';
+  // Use dvh (dynamic viewport height) which accounts for browser chrome
+  // Row height = (100dvh - padding - header - gaps) / maxHabits
+  const rowH = `calc((100dvh - 1.5rem - 32px - ${maxHabits * 6}px) / ${maxHabits})`;
+  grid.style.gridTemplateRows = `32px repeat(${maxHabits}, ${rowH})`;
 
   // Re-insert the cog as first cell after clearing grid
   renderSettingsButton();
@@ -169,6 +171,7 @@ function render() {
       }
 
       dot.className = cls;
+
 
       if (!isFuture && !beforeStart && state !== 'na') {
         dot.addEventListener('click', () => {
@@ -316,6 +319,19 @@ function renderSettings() {
       </div>
     </div>
 
+    <div id="section-display">
+      <div style="${hdr}" id="toggle-display">
+        <span style="${lbl}">Display</span>
+        <span style="${chv}" id="chevron-display">▶</span>
+      </div>
+      <div id="body-display" style="display:none;padding-top:10px">
+        <div style="font-size:12px;color:#7A7870;margin-bottom:10px">Max habits shown (sets row height)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="max-habits-btns">
+          ${[6,7,8,9,10,11,12].map(n => `<button data-n="${n}" style="flex:1;min-width:36px;padding:8px 4px;border:1px solid #E4E2DB;border-radius:8px;font-size:13px;cursor:pointer;background:${getMaxHabits()===n?'#1D9E75':'#F7F6F3'};color:${getMaxHabits()===n?'#fff':'#1A1917'}">${n}</button>`).join('')}
+        </div>
+      </div>
+    </div>
+
     <div id="section-backup">
       <div style="${hdr}" id="toggle-backup">
         <span style="${lbl}">Backup</span>
@@ -351,7 +367,7 @@ function renderSettings() {
   document.body.appendChild(panel);
 
   // Collapsible toggles
-  ['habits', 'backup', 'restore'].forEach(id => {
+  ['habits', 'display', 'backup', 'restore'].forEach(id => {
     document.getElementById('toggle-' + id).onclick = () => {
       const body = document.getElementById('body-' + id);
       const chevron = document.getElementById('chevron-' + id);
@@ -361,6 +377,18 @@ function renderSettings() {
       if (!open && id === 'restore') loadRestoreList();
     };
   });
+
+  document.getElementById('max-habits-btns').onclick = (e) => {
+    const n = parseInt(e.target.dataset.n);
+    if (!n) return;
+    setMaxHabits(n);
+    document.querySelectorAll('#max-habits-btns button').forEach(btn => {
+      const active = parseInt(btn.dataset.n) === n;
+      btn.style.background = active ? '#1D9E75' : '#F7F6F3';
+      btn.style.color = active ? '#fff' : '#1A1917';
+    });
+    render();
+  };
 
   renderHabitsManageList();
 
