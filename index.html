@@ -15,33 +15,20 @@
     --radius: 12px; --radius-sm: 8px; --radius-pill: 20px;
   }
   html, body { height: 100%; background: var(--surface); font-family: 'DM Sans', sans-serif; color: var(--text-primary); -webkit-font-smoothing: antialiased; }
-  body { min-height: 100vh; padding: 1.25rem; }
+  body { padding: 0.75rem; overflow-x: hidden; }
   .card { width: 100%; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.75rem; }
-  .title { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); }
-  .date-range { font-size: 13px; color: var(--text-secondary); margin-top: 3px; font-family: 'DM Mono', monospace; }
-  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.75rem; }
-  .stat { background: var(--bg); border-radius: var(--radius-sm); padding: 14px 16px; border: 1px solid var(--border); }
-  .stat-label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 5px; }
-  .stat-val { font-size: 26px; font-weight: 500; letter-spacing: -0.02em; color: var(--text-primary); font-family: 'DM Mono', monospace; }
   #main-grid { display: grid; gap: 6px; align-items: center; }
   .day-col { font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-hint); text-align: center; padding-bottom: 4px; }
   .day-col.today { color: var(--green); }
   .habit-name { font-size: 14px; color: var(--text-primary); white-space: nowrap; padding-right: 16px; }
-  .dot-wrap { display: flex; align-items: center; justify-content: center; }
-  .dot { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; transition: background 0.12s, border-color 0.12s, transform 0.1s; flex-shrink: 0; }
+  .dot-wrap { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+  .dot { aspect-ratio: 1; height: 75%; max-width: 90%; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; transition: background 0.12s, border-color 0.12s, transform 0.1s; }
   .dot:hover { border-color: var(--green); background: var(--green-light); transform: scale(1.08); }
   .dot.done { background: var(--green); border-color: var(--green); }
   .dot.done:hover { background: #0F6E56; border-color: #0F6E56; transform: scale(1.08); }
   .dot.today-ring { border-color: var(--green); border-width: 2px; }
   .dot.future { opacity: 0.25; cursor: default; pointer-events: none; }
   .dot.na { background: #EEEDE9; border-color: #EEEDE9; cursor: default; pointer-events: none; }
-  .divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
-  .todo-label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; }
-  .todo-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
-  .chip { font-size: 13px; padding: 4px 12px; border-radius: var(--radius-pill); background: var(--coral-light); color: var(--coral); border: 1px solid var(--coral-border); }
-  .all-done { font-size: 13px; color: var(--green); font-weight: 500; }
-  @media (max-width: 600px) { body { padding: 1rem; } .card { padding: 1.25rem; } .habit-name { font-size: 12px; } .dot { width: 24px; height: 24px; } }
 </style>
 </head>
 <body>
@@ -50,9 +37,10 @@
 </div>
 
 <script>
-const DEFAULT_HABITS = [];
 
 function getDateKey(d) { return d.toISOString().slice(0, 10); }
+function getMaxHabits() { return parseInt(localStorage.getItem('max_habits') || '6'); }
+function setMaxHabits(n) { localStorage.setItem('max_habits', String(n)); }
 
 function getLast7Days() {
   const days = [];
@@ -63,8 +51,8 @@ function getLast7Days() {
 function loadHabits() {
   try {
     const h = localStorage.getItem('habits');
-    return h ? JSON.parse(h) : DEFAULT_HABITS;
-  } catch(e) { return DEFAULT_HABITS; }
+    return h ? JSON.parse(h) : [];
+  } catch(e) { return []; }
 }
 
 function loadCompletions() {
@@ -77,7 +65,6 @@ function save(habits, completions) {
   localStorage.setItem('completions', JSON.stringify(completions));
 }
 
-// Returns 'done', 'na', or 'empty'
 function getDotState(completions, habitName, dateKey) {
   const val = completions[habitName + '|' + dateKey];
   if (val === true) return 'done';
@@ -92,7 +79,6 @@ function pauseHabit(habits, habitName, today) {
 function unpauseHabit(habits, completions, habitName, today) {
   const habit = habits.find(h => h.name === habitName);
   if (!habit || !habit.pausedFrom) return { habits, completions };
-  // Backfill 'na' from pausedFrom to yesterday
   const c = { ...completions };
   let cursor = new Date(habit.pausedFrom);
   const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
@@ -113,16 +99,17 @@ function render() {
   const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
   const activeHabits = habits.filter(h => h.status === 'active');
+  const maxHabits = getMaxHabits();
 
   const cols = 'max-content repeat(7, 1fr)';
   const grid = document.getElementById('main-grid');
   grid.innerHTML = '';
   grid.style.gridTemplateColumns = cols;
+  const rowH = `calc((100dvh - 1.5rem - 32px - ${maxHabits * 6}px) / ${maxHabits})`;
+  grid.style.gridTemplateRows = `32px repeat(${maxHabits}, ${rowH})`;
 
-  // Re-insert the cog as first cell after clearing grid
   renderSettingsButton();
 
-  // Header row — day labels
   days.forEach(d => {
     const isToday = getDateKey(d) === today;
     const el = document.createElement('div');
@@ -131,7 +118,6 @@ function render() {
     grid.appendChild(el);
   });
 
-  // Habit rows
   activeHabits.forEach(habit => {
     const nameEl = document.createElement('div');
     nameEl.className = 'habit-name';
@@ -191,8 +177,6 @@ function runBackupIfDue() {
   }
 }
 
-// ── GitHub Gist backup ──────────────────────────────────────────────────────
-
 function getGistToken() { return localStorage.getItem('gist_token') || ''; }
 function getGistId(key) { return localStorage.getItem('gist_id_' + key) || ''; }
 function setGistId(key, id) { localStorage.setItem('gist_id_' + key, id); }
@@ -204,16 +188,12 @@ async function runGistBackup(today, mode) {
   const completions = loadCompletions();
   const content = JSON.stringify({ date: today, habits, completions }, null, 2);
   try {
-    // Always write the daily file
     await writeGistFile(token, 'daily', 'habit-tracker-daily.json', content);
-
-    // On Sundays also write the rolling weekly slot
     if (mode === 'weekly') {
       const slot = getNextWeeklySlot();
       await writeGistFile(token, 'weekly' + slot, 'habit-tracker-' + slot + '.json', content, 'Habit Tracker — Weekly Backup ' + slot + ' (' + today + ')');
       localStorage.setItem('weekly_slot', String(slot));
     }
-
     localStorage.setItem('backup_last_run', today);
     showBackupStatus('✓', 'ok');
   } catch(e) {
@@ -276,8 +256,6 @@ function showBackupStatus(msg, type) {
   if (type === 'ok') setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
 
-// ── Settings panel ──────────────────────────────────────────────────────────
-
 function renderSettings() {
   let panel = document.getElementById('settings-panel');
   if (panel) { panel.remove(); return; }
@@ -305,6 +283,19 @@ function renderSettings() {
           <input id="new-habit-input" type="text" placeholder="New habit name"
             style="flex:1;padding:8px 10px;border:1px solid #E4E2DB;border-radius:8px;font-size:13px;outline:none" />
           <button id="add-habit-btn" style="padding:8px 14px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="section-display">
+      <div style="${hdr}" id="toggle-display">
+        <span style="${lbl}">Display</span>
+        <span style="${chv}" id="chevron-display">▶</span>
+      </div>
+      <div id="body-display" style="display:none;padding-top:10px">
+        <div style="font-size:12px;color:#7A7870;margin-bottom:10px">Max habits shown (sets row height)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="max-habits-btns">
+          ${[6,7,8,9,10,11,12].map(n => `<button data-n="${n}" style="flex:1;min-width:36px;padding:8px 4px;border:1px solid #E4E2DB;border-radius:8px;font-size:13px;cursor:pointer;background:${getMaxHabits()===n?'#1D9E75':'#F7F6F3'};color:${getMaxHabits()===n?'#fff':'#1A1917'}">${n}</button>`).join('')}
         </div>
       </div>
     </div>
@@ -343,8 +334,7 @@ function renderSettings() {
   `;
   document.body.appendChild(panel);
 
-  // Collapsible toggles
-  ['habits', 'backup', 'restore'].forEach(id => {
+  ['habits', 'display', 'backup', 'restore'].forEach(id => {
     document.getElementById('toggle-' + id).onclick = () => {
       const body = document.getElementById('body-' + id);
       const chevron = document.getElementById('chevron-' + id);
@@ -354,6 +344,18 @@ function renderSettings() {
       if (!open && id === 'restore') loadRestoreList();
     };
   });
+
+  document.getElementById('max-habits-btns').onclick = (e) => {
+    const n = parseInt(e.target.dataset.n);
+    if (!n) return;
+    setMaxHabits(n);
+    document.querySelectorAll('#max-habits-btns button').forEach(btn => {
+      const active = parseInt(btn.dataset.n) === n;
+      btn.style.background = active ? '#1D9E75' : '#F7F6F3';
+      btn.style.color = active ? '#fff' : '#1A1917';
+    });
+    render();
+  };
 
   renderHabitsManageList();
 
@@ -406,7 +408,6 @@ function renderHabitsManageList() {
     btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
 
     if (isArchived) {
-      // Unarchive — backfills 'na' for the archived period, same as unpause
       const unarchiveBtn = document.createElement('button');
       unarchiveBtn.textContent = 'Restore';
       unarchiveBtn.style.cssText = btnStyle;
@@ -414,14 +415,12 @@ function renderHabitsManageList() {
         const h = loadHabits();
         const c = loadCompletions();
         const result = unpauseHabit(h, c, habit.name, getDateKey(new Date()));
-        // unpauseHabit sets status to 'active', which is what we want
         save(result.habits, result.completions);
         renderHabitsManageList();
         render();
       };
       btns.appendChild(unarchiveBtn);
     } else if (isPaused) {
-      // Resume button
       const resumeBtn = document.createElement('button');
       resumeBtn.textContent = 'Resume';
       resumeBtn.style.cssText = btnStyle;
@@ -435,7 +434,6 @@ function renderHabitsManageList() {
       };
       btns.appendChild(resumeBtn);
     } else {
-      // Pause button
       const pauseBtn = document.createElement('button');
       pauseBtn.textContent = '⏸';
       pauseBtn.style.cssText = btnStyle;
@@ -450,7 +448,6 @@ function renderHabitsManageList() {
     }
 
     if (!isArchived) {
-      // Archive button
       const archiveBtn = document.createElement('button');
       archiveBtn.textContent = '✕';
       archiveBtn.style.cssText = redBtnStyle;
@@ -469,7 +466,7 @@ function renderHabitsManageList() {
       btns.appendChild(archiveBtn);
     }
 
-    // Delete button — fully removes habit and all its history
+    // Delete button — fully removes habit and all history
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = '🗑';
     deleteBtn.style.cssText = redBtnStyle;
@@ -502,12 +499,10 @@ function renderHabitsManageList() {
   }
 
   active.forEach(h => listEl.appendChild(makeRow(h)));
-
   if (paused.length > 0) {
     listEl.appendChild(makeGroupLabel('Paused'));
     paused.forEach(h => listEl.appendChild(makeRow(h)));
   }
-
   if (archived.length > 0) {
     listEl.appendChild(makeGroupLabel('Archived'));
     archived.forEach(h => listEl.appendChild(makeRow(h)));
@@ -525,7 +520,6 @@ async function loadRestoreList() {
     return;
   }
 
-  // Build list of known gists: daily + weekly 1-4
   const slots = [
     { label: 'Daily', idKey: 'daily' },
     { label: 'Weekly 1', idKey: 'weekly1' },
@@ -542,7 +536,6 @@ async function loadRestoreList() {
 
   listEl.innerHTML = '<div style="font-size:12px;color:#B4B2A9;margin-bottom:8px">Loading backups...</div>';
 
-  // Fetch date from each gist
   const rows = await Promise.all(available.map(async slot => {
     try {
       const res = await fetch('https://api.github.com/gists/' + getGistId(slot.idKey), {
@@ -603,10 +596,9 @@ function confirmRestore(row) {
 function renderSettingsButton() {
   const btn = document.createElement('button');
   btn.textContent = '⚙';
-  btn.title = 'Backup settings';
+  btn.title = 'Settings';
   btn.style.cssText = 'background:none;border:none;font-size:15px;cursor:pointer;color:#B4B2A9;line-height:1;padding:0;text-align:left';
   btn.onclick = renderSettings;
-  // Place it as the first cell in the grid (the empty name-column header slot)
   const grid = document.getElementById('main-grid');
   grid.insertBefore(btn, grid.firstChild);
 }
