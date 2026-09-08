@@ -28,7 +28,7 @@
   .dot.done:hover { background: #0F6E56; border-color: #0F6E56; transform: scale(1.08); }
   .dot.today-ring { border-color: var(--green); border-width: 2px; }
   .dot.future { opacity: 0.25; cursor: default; pointer-events: none; }
-  .dot.na { background: #EEEDE9; border-color: #EEEDE9; cursor: default; pointer-events: none; }
+  .dot.missed { background: #FAECE7; border-color: #F0997B; cursor: default; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -136,6 +136,11 @@ function render() {
       wrap.className = 'dot-wrap';
       const dot = document.createElement('div');
 
+      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayKey = getDateKey(yesterday);
+      const isEditable = key === today || key === yesterdayKey;
+      const isMissed = !isFuture && !beforeStart && state === 'empty' && !isToday && key < yesterdayKey;
+
       let cls = 'dot';
       if (beforeStart || state === 'na') {
         cls += ' na';
@@ -143,13 +148,15 @@ function render() {
         cls += ' done';
       } else if (isFuture) {
         cls += ' future';
+      } else if (isMissed) {
+        cls += ' missed';
       } else if (isToday) {
         cls += ' today-ring';
       }
 
       dot.className = cls;
 
-      if (!isFuture && !beforeStart && state !== 'na') {
+      if (isEditable && !beforeStart && state !== 'na') {
         dot.addEventListener('click', () => {
           const c = loadCompletions();
           const h = loadHabits();
