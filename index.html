@@ -173,6 +173,7 @@ function render() {
 }
 
 function runBackupIfDue() {
+  if (!getGistToken()) return;
   const lastBackup = localStorage.getItem('backup_last_run');
   const today = getDateKey(new Date());
   if (lastBackup === today) return;
@@ -230,7 +231,10 @@ async function createGist(token, filename, content, description) {
     body: JSON.stringify({ description: description || 'Habit Tracker Backup', public: false,
       files: { [filename]: { content } } })
   });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error('POST ' + res.status + ' ' + (body.message || ''));
+  }
   const data = await res.json();
   return data.id;
 }
@@ -243,7 +247,10 @@ async function patchGist(token, gistId, filename, content, description) {
     headers: { Authorization: 'token ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    throw new Error('PATCH ' + res.status + ' ' + (b.message || ''));
+  }
 }
 
 function showBackupStatus(msg, type) {
