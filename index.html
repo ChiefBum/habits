@@ -86,8 +86,10 @@ function unpauseHabit(habits, completions, habitName, today) {
   const habit = habits.find(h => h.name === habitName);
   if (!habit || !habit.pausedFrom) return { habits, completions };
   const c = { ...completions };
-  let cursor = new Date(habit.pausedFrom);
-  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const [py, pm, pd] = habit.pausedFrom.split('-').map(Number);
+  let cursor = new Date(py, pm - 1, pd);
+  const [ty, tm, td] = today.split('-').map(Number);
+  const yesterday = new Date(ty, tm - 1, td - 1);
   while (cursor <= yesterday) {
     const key = getDateKey(cursor);
     if (!c[habitName + '|' + key]) c[habitName + '|' + key] = 'na';
