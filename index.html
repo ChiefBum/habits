@@ -29,6 +29,7 @@
   .dot.today-ring { border-color: var(--green); border-width: 2px; }
   .dot.future { opacity: 0.25; cursor: default; pointer-events: none; }
   .dot.missed { background: #FAECE7; border-color: #F0997B; }
+  .dot.due { border-color: #D85A30; border-width: 2px; }
 </style>
 </head>
 <body>
@@ -139,7 +140,9 @@ function render() {
       const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayKey = getDateKey(yesterday);
       const isEditable = key === today || key === yesterdayKey;
-      const isMissed = !isFuture && !beforeStart && state === 'empty' && !isToday;
+      const frequency = habit.frequency || 1;
+      const isMissed = !isFuture && !beforeStart && state === 'empty' && !isToday && isFrequencyMiss(completions, habit.name, key, frequency);
+      const isDue = isToday && state === 'empty' && isFrequencyMiss(completions, habit.name, key, frequency);
 
       let cls = 'dot';
       if (beforeStart || state === 'na') {
@@ -150,6 +153,8 @@ function render() {
         cls += ' future';
       } else if (isMissed) {
         cls += ' missed';
+      } else if (isDue) {
+        cls += ' due';
       } else if (isToday) {
         cls += ' today-ring';
       }
@@ -170,6 +175,18 @@ function render() {
       grid.appendChild(wrap);
     });
   });
+}
+
+// Returns true if habit is due/overdue on dateKey based on frequency
+function isFrequencyMiss(completions, habitName, dateKey, frequency) {
+  if (frequency <= 1) return true; // daily — always a miss if empty
+  // Check if any of the previous (frequency-1) days were done
+  for (let i = 1; i < frequency; i++) {
+    const d = new Date(dateKey);
+    d.setDate(d.getDate() - i);
+    if (completions[habitName + '|' + getDateKey(d)] === true) return false;
+  }
+  return true;
 }
 
 function runBackupIfDue() {
@@ -475,6 +492,24 @@ function renderHabitsManageList() {
       input.addEventListener('keydown', e => { if (e.key === 'Enter') doRename(); if (e.key === 'Escape') renderHabitsManageList(); });
     };
     btns.appendChild(renameBtn);
+
+    // Frequency selector — only for active/paused habits
+    if (!isArchived) {
+      const freqBtn = document.createElement('button');
+      const freq = habit.frequency || 1;
+      freqBtn.textContent = freq + 'd';
+      freqBtn.title = 'Frequency: every ' + freq + ' day(s)';
+      freqBtn.style.cssText = btnStyle + ';min-width:28px';
+      freqBtn.onclick = () => {
+        const current = habit.frequency || 1;
+        const next = current >= 7 ? 1 : current + 1;
+        const h = loadHabits().map(x => x.name === habit.name ? { ...x, frequency: next } : x);
+        save(h, loadCompletions());
+        renderHabitsManageList();
+        render();
+      };
+      btns.appendChild(freqBtn);
+    }
 
     if (isArchived) {
       const unarchiveBtn = document.createElement('button');
