@@ -412,14 +412,69 @@ function renderHabitsManageList() {
 
   function makeRow(habit) {
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F0EFE9;';
-    const name = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F0EFE9;gap:6px;';
     const isArchived = habit.status === 'archived';
     const isPaused = habit.status === 'paused';
-    name.style.cssText = 'font-size:13px;color:' + (isArchived ? '#D4D2CC' : isPaused ? '#B4B2A9' : '#1A1917');
+
+    // Name / rename area
+    const nameWrap = document.createElement('div');
+    nameWrap.style.cssText = 'flex:1;min-width:0;display:flex;align-items:center;gap:6px';
+
+    const name = document.createElement('div');
+    name.style.cssText = 'font-size:13px;color:' + (isArchived ? '#D4D2CC' : isPaused ? '#B4B2A9' : '#1A1917') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
     name.textContent = habit.name;
+    nameWrap.appendChild(name);
+
     const btns = document.createElement('div');
     btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
+
+    // Rename button
+    const renameBtn = document.createElement('button');
+    renameBtn.textContent = '✎';
+    renameBtn.style.cssText = btnStyle;
+    renameBtn.onclick = () => {
+      // Swap name div for input
+      name.style.display = 'none';
+      renameBtn.style.display = 'none';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = habit.name;
+      input.style.cssText = 'flex:1;padding:3px 6px;border:1px solid #1D9E75;border-radius:6px;font-size:13px;outline:none;min-width:0';
+      nameWrap.appendChild(input);
+      input.focus();
+      input.select();
+
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Save';
+      saveBtn.style.cssText = 'padding:3px 8px;background:#1D9E75;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;flex-shrink:0';
+      btns.insertBefore(saveBtn, btns.firstChild);
+
+      const doRename = () => {
+        const newName = input.value.trim();
+        if (!newName || newName === habit.name) { renderHabitsManageList(); return; }
+        const h = loadHabits();
+        if (h.find(x => x.name === newName)) { input.style.borderColor = '#D85A30'; return; }
+        // Update habit name
+        const newHabits = h.map(x => x.name === habit.name ? { ...x, name: newName } : x);
+        // Rewrite completion keys
+        const c = loadCompletions();
+        const newC = {};
+        Object.keys(c).forEach(k => {
+          if (k.startsWith(habit.name + '|')) {
+            newC[newName + '|' + k.slice(habit.name.length + 1)] = c[k];
+          } else {
+            newC[k] = c[k];
+          }
+        });
+        save(newHabits, newC);
+        renderHabitsManageList();
+        render();
+      };
+
+      saveBtn.onclick = doRename;
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') doRename(); if (e.key === 'Escape') renderHabitsManageList(); });
+    };
+    btns.appendChild(renameBtn);
 
     if (isArchived) {
       const unarchiveBtn = document.createElement('button');
@@ -500,7 +555,7 @@ function renderHabitsManageList() {
     };
     btns.appendChild(deleteBtn);
 
-    row.appendChild(name);
+    row.appendChild(nameWrap);
     row.appendChild(btns);
     return row;
   }
