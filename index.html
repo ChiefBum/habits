@@ -197,6 +197,7 @@ function isFrequencyMiss(completions, habitName, dateKey, frequency) {
 
 function runBackupIfDue() {
   if (!getGistToken()) return;
+  if (loadHabits().length === 0) return;
   const lastBackup = localStorage.getItem('backup_last_run');
   const today = getDateKey(new Date());
   if (lastBackup === today) return;
