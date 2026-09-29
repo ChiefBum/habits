@@ -30,6 +30,8 @@
   .dot.future { opacity: 0.25; cursor: default; pointer-events: none; }
   .dot.missed { background: #FAECE7; border-color: #F0997B; }
   .dot.due { border-color: #D85A30; border-width: 2px; }
+  .dot.covered { position: relative; }
+  .dot.covered::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 22%; aspect-ratio: 1; border-radius: 50%; background: var(--green); }
 </style>
 </head>
 <body>
@@ -160,6 +162,8 @@ function render() {
         cls += ' future';
       } else if (isMissed) {
         cls += ' missed';
+      } else if (!isToday && state === 'empty') {
+        cls += ' covered'; // past rest day, still inside the frequency window
       } else if (isDue) {
         cls += ' due';
       } else if (isToday) {
