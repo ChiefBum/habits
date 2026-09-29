@@ -710,12 +710,48 @@ function renderSettingsButton() {
   btn.title = 'Settings';
   btn.style.cssText = 'background:none;border:none;font-size:15px;cursor:pointer;color:#B4B2A9;line-height:1;padding:0;text-align:left';
   btn.onclick = renderSettings;
+  const lights = document.createElement('a');
+  lights.href = 'lights.html';
+  lights.title = 'Lights';
+  lights.style.cssText = 'display:inline-flex;color:#B4B2A9;line-height:1;padding:0';
+  lights.style.cssText += ';align-items:center;gap:5px;text-decoration:none';
+  lights.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg><span id="wake-label" style="font-family:DM Mono,monospace;font-size:12px"></span>';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;align-items:center;gap:14px';
+  wrap.appendChild(btn);
+  wrap.appendChild(lights);
   const grid = document.getElementById('main-grid');
-  grid.insertBefore(btn, grid.firstChild);
+  grid.insertBefore(wrap, grid.firstChild);
+  showWakeLabel();
+}
+
+// ---- Wake lights time beside the bulb (reads the lights page's saved connection) ----
+function showWakeLabel() {
+  const el = document.getElementById('wake-label');
+  if (!el) return;
+  const t = localStorage.getItem('lights_cached_time'); // "HH:MM", "off", or not set yet
+  el.textContent = !t ? '' : t === 'off' ? 'OFF' : t;
+  el.style.color = t && t !== 'off' ? '#1D9E75' : '#B4B2A9';
+}
+
+async function refreshWakeTime() {
+  const url = localStorage.getItem('lights_worker_url');
+  const key = localStorage.getItem('lights_key');
+  if (!url || !key) return;
+  try {
+    const res = await fetch(url, { headers: { 'X-Key': key } });
+    if (!res.ok) return;
+    const data = await res.json();
+    localStorage.setItem('lights_cached_time', data.time || 'off');
+    showWakeLabel();
+  } catch (e) { /* offline — keep showing the last known time */ }
 }
 
 render();
 runBackupIfDue();
+refreshWakeTime();
+setInterval(refreshWakeTime, 10 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshWakeTime(); });
 </script>
 </body>
 </html>
