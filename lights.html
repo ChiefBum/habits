@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lights</title>
+<style>
+  body { font-family: sans-serif; padding: 24px; max-width: 420px; }
+  #time { font-family: monospace; font-size: 72px; margin: 16px 0; }
+  button, input { font-size: 18px; padding: 8px 14px; margin: 4px 4px 4px 0; }
+  #msg { margin-top: 16px; color: #555; white-space: pre-wrap; font-family: monospace; font-size: 13px; }
+  fieldset { margin-top: 32px; }
+</style>
+</head>
+<body>
+
+<div>Lights come on at:</div>
+<div id="time">--:--</div>
+
+<input id="new-time" type="time">
+<button id="set-btn">Set</button>
+<button id="off-btn">Off</button>
+
+<div style="margin-top:24px">Test now:
+  <button id="on-now">Lights on</button>
+  <button id="off-now">Lights off</button>
+</div>
+
+<fieldset>
+  <legend>Connection</legend>
+  <div><input id="url" placeholder="https://lights.xxx.workers.dev" style="width:100%"></div>
+  <div><input id="key" type="password" placeholder="APP_KEY" style="width:100%"></div>
+  <button id="save-conn">Save</button>
+  <a href="#" id="debug">debug</a>
+</fieldset>
+
+<div id="msg"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const msg = t => { $('msg').textContent = t; };
+const getUrl = () => localStorage.getItem('lights_worker_url') || '';
+const getKey = () => localStorage.getItem('lights_key') || '';
+
+async function api(method, body, query = '') {
+  if (!getUrl() || !getKey()) throw new Error('Set the Worker URL and key below');
+  const res = await fetch(getUrl() + query, {
+    method,
+    headers: { 'X-Key': getKey(), 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+  return data;
+}
+
+function show(time) { $('time').textContent = time || 'OFF'; }
+
+async function refresh() {
+  try { msg('Loading…'); show((await api('GET')).time); msg(''); }
+  catch (e) { msg('✗ ' + e.message); }
+}
+
+async function setTime(time) {
+  try { msg('Saving…'); show((await api('POST', { time })).time); msg('✓ Saved'); }
+  catch (e) { msg('✗ ' + e.message); }
+}
+
+async function lightsNow(action) {
+  try { msg('Switching…'); await api('POST', { action }); msg('✓ Lights ' + action); }
+  catch (e) { msg('✗ ' + e.message); }
+}
+
+$('set-btn').onclick = () => { const v = $('new-time').value; if (v) setTime(v); };
+$('off-btn').onclick = () => setTime(null);
+$('on-now').onclick = () => lightsNow('on');
+$('off-now').onclick = () => lightsNow('off');
+$('save-conn').onclick = () => {
+  localStorage.setItem('lights_worker_url', $('url').value.trim().replace(/\/$/, ''));
+  localStorage.setItem('lights_key', $('key').value.trim());
+  refresh();
+};
+$('debug').onclick = async e => {
+  e.preventDefault();
+  try { msg(JSON.stringify(await api('GET', null, '?debug=1'), null, 2)); }
+  catch (err) { msg('✗ ' + err.message); }
+};
+
+$('url').value = getUrl();
+$('key').value = getKey();
+refresh();
+</script>
+</body>
+</html>
